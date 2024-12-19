@@ -3,9 +3,10 @@ from queue import PriorityQueue
 # Has a unique id, can be uuid or just number them
 # Keeps a list of edges that are attached to the vertex
 class Vertex:
-    def __init__(id):
+    def __init__(id, location):
         self.id = id
         self.edges = list(Edge)
+        self.location = tuple(location.first, location.second) #tuple of coords
 
 class Dij_Vert:
     def __init__(self, src, w = 1.0):
@@ -84,17 +85,57 @@ class Graph:
                     weight = edge.weight
 
                     if (next.weight + weight < dist[edge.src]):
-                        dist[edge.dist] = next.weight + weight
+                        dist[edge.dest] = next.weight + weight
                         pred[edge.dest] = next.src
                         frontier.put({edge.dest, next.weight + weight})
 
         return dist
     
     #TODO: Research and Implement
-    #def A_star(self, s):
+    def A_star(self, s, e):
+        dist = [float('inf')] * self.graph.count()
+        pred = [-1] * self.graph.count()
+        known = [False] * self.graph.count()
+        h_vals = [-1] * self.graph.count()
+
+        frontier = PriorityQueue()
+
+        dist[s] = 0
+        pred[s] = s
+        h_vals[s] = self.calculate_heuristic(s, e)
+
+        start = Dij_Vert(s, 0)
+        frontier.put(start)
+
+        while(not frontier.empty()):
+            next = Dij_Vert()
+            next.src, next.weight = frontier.get()
+
+            if (known[next.src]):
+                continue
+
+            known[next.src] = True
+
+            for edge in self.graph[next.src]:
+                if (not known[edge.dest]):
+                    weight = edge.weight
+                    h = self.calculate_heuristic(next.src, e)
+
+                    if (next.weight + weight + h < dist[edge.src] + self.calculate_heuristic(edge.src, e)):
+                        dist[edge.dest] = next.weight + weight
+                        pred[edge.dest] = next.src
+                        h_vals[edge.dest] = h
+                        frontier.put({edge.dest, next.weight + weight + h})
+
+        return dist
+
 
     def is_valid_vertex(self, vertex):
         return vertex >= 0 and vertex < self.graph.count()
+    
+    def calculate_heuristic(self, start, end):
+        h = abs(start.location.first - end.location.first) + abs(start.location.second - end.location.second)
+        return h
     
     # Checks if there is already an edge between 2 vertices, would need to be changed if the graph is not directed
     def has_edge(self, src, dest):
