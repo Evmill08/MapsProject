@@ -3,21 +3,23 @@ from queue import PriorityQueue
 # Has a unique id, can be uuid or just number them
 # Keeps a list of edges that are attached to the vertex
 class Vertex:
-    def __init__(id, location):
+    def __init__(self, id, location):
         self.id = id
-        self.edges = list(Edge)
-        self.location = tuple(location.first, location.second) #tuple of coords
+        self.edges = []
+        self.location = tuple(location) #tuple of coords
 
 class Dij_Vert:
     def __init__(self, src, w = 1.0):
         self.src = src
         self.weight = w
+    def __lt__(self, other):
+        return self.weight < other.weight
 
 
 # Keeps the vertices that it connects in a list
 # Has default weight value of 1. The weight is the cost of traversing the edge
 class Edge:
-    def __init__(src, dest, w = 1):
+    def __init__(self, src, dest, w = 1):
         self.src = src
         self.dest = dest
         self.weight = w
@@ -27,30 +29,26 @@ class Edge:
 class Graph:
     def __init__(self, num_verts):
         self.num_verts = num_verts
-        self.graph = list(Vertex)
-
-        for i in range(num_verts):
-            self.graph.append(i)
-
+        self.graph = [Vertex(i, (0, 0)) for i in range(num_verts)]
 
     def add_edge(self, src, dest, w = 1.0):
         if (src == dest or not self.is_valid_vertex(src) or not self.is_valid_vertex(dest) or self.has_edge(src, dest)):
             return
         
-        self.graph[src].edges.append(src, dest, w)
-        self.graph[dest].edges.append(dest, src, w)
+        edge = Edge(src, dest, w)
+        self.graph[src].edges.append(edge)
+        self.graph[dest].edges.append(edge)
 
-# Goes through a vertices edges, if its there, swap the last edge to its place, remove the last edge
+    # Goes through a vertices edges, if its there, swap the last edge to its place, remove the last edge
     def remove_edge(self, src, dest):
         if (src == dest or not self.is_valid_vertex(src) or not self.is_valid_vertex(dest)):
             return
         
         edges = self.graph[src].edges
 
-        for i in range(edges.count()):
-            if (edges[i].dest == dest):
-                edges[i] = edges[edges.count() - 1]
-                edges.pop()
+        for i, edge in enumerate(edges):
+            if edge.dest == dest:
+                edges.pop(i)
                 break
 
     
@@ -59,94 +57,89 @@ class Graph:
 
     # Dijkstra's algorithm, not explaining this, look it up
     def Dijkstra(self, s):
-        dist = [float('inf')] * self.graph.count()
-        pred = [-1] * self.graph.count()
-        known = [False] * self.graph.count()
-
+        dist = [float('inf')] * self.num_verts
+        pred = [-1] * self.num_verts
+        known = [False] * self.num_verts
         frontier = PriorityQueue()
 
         dist[s] = 0
-        pred[s] = s
+        frontier.put(Dij_Vert(s,0))
 
-        start = Dij_Vert(s, 0)
-        frontier.put(start)
-
-        while (not frontier.empty()):
-            next = Dij_Vert()
-            next.src, next.weight = frontier.get()
+        while not frontier.empty():
+            next = frontier.get()
 
             if (known[next.src]):
                 continue
 
             known[next.src] = True
 
-            for edge in self.graph[next.src]:
-                if (not known[edge.dest]):
+            for edge in self.graph[next.src].edges:
+                if not known[edge.dest]:
                     weight = edge.weight
-
-                    if (next.weight + weight < dist[edge.src]):
+                    if next.weight + weight < dist[edge.dest]:
                         dist[edge.dest] = next.weight + weight
                         pred[edge.dest] = next.src
-                        frontier.put({edge.dest, next.weight + weight})
+                        frontier.put(Dij_Vert(edge.dest, dist[edge.dest]))
 
         return dist
     
     #TODO: Research and Implement
     def A_star(self, s, e):
-        dist = [float('inf')] * self.graph.count()
-        pred = [-1] * self.graph.count()
-        known = [False] * self.graph.count()
-        h_vals = [-1] * self.graph.count()
+        # Initialize arrays
+        dist = [float('inf')] * self.num_verts  # Distance from source
+        pred = [-1] * self.num_verts  # Predecessor array
+        known = [False] * self.num_verts  # Known vertices (visited)
+        
+        frontier = PriorityQueue()  # Priority queue for frontier
 
-        frontier = PriorityQueue()
-
+        # Initialize start node
         dist[s] = 0
-        pred[s] = s
-        h_vals[s] = self.calculate_heuristic(s, e)
+        frontier.put((0, s))  # (priority, node)
 
-        start = Dij_Vert(s, 0)
-        frontier.put(start)
+        while not frontier.empty():
+            # Get the next node with the smallest priority
+            current_priority, current_node = frontier.get()
 
-        while(not frontier.empty()):
-            next = Dij_Vert()
-            next.src, next.weight = frontier.get()
-
-            if (known[next.src]):
+            # If the node is already processed, skip it
+            if known[current_node]:
                 continue
 
-            known[next.src] = True
+            known[current_node] = True
 
-            for edge in self.graph[next.src]:
-                if (not known[edge.dest]):
-                    weight = edge.weight
-                    h = self.calculate_heuristic(next.src, e)
+            # If we reached the target node, exit early
+            if current_node == e:
+                break
 
-                    if (next.weight + weight + h < dist[edge.src] + self.calculate_heuristic(edge.src, e)):
-                        dist[edge.dest] = next.weight + weight
-                        pred[edge.dest] = next.src
-                        h_vals[edge.dest] = h
-                        frontier.put({edge.dest, next.weight + weight + h})
+            # Explore neighbors
+            for edge in self.graph[current_node].edges:
+                neighbor = edge.dest
+                if known[neighbor]:
+                    continue
 
-        return dist
+                # g = distance to neighbor
+                g = dist[current_node] + edge.weight
+                h = self.calculate_heuristic(neighbor, e)  # Heuristic to target
+                f = g + h  # Total cost (priority)
+
+                # Update distance if a better path is found
+                if g < dist[neighbor]:
+                    dist[neighbor] = g
+                    pred[neighbor] = current_node
+                    frontier.put((f, neighbor))  # Push to frontier with priority f
+
+        return dist, pred  # Return distances and predecessors
 
 
     def is_valid_vertex(self, vertex):
-        return vertex >= 0 and vertex < self.graph.count()
+        return 0 <= vertex < self.num_verts
     
     def calculate_heuristic(self, start, end):
-        h = abs(start.location.first - end.location.first) + abs(start.location.second - end.location.second)
-        return h
+        start_loc = self.graph[start].location
+        end_loc = self.graph[end].location
+        return abs(start_loc[0] - end_loc[0]) + abs(start_loc[1] - end_loc[1])
     
     # Checks if there is already an edge between 2 vertices, would need to be changed if the graph is not directed
     def has_edge(self, src, dest):
-
-        if (src == dest or not self.is_valid_vertex(src) or not self.is_valid_vertex(dest)):
-            return False
-
-        for edge in self.graph[src].edges:
-            if edge.dest == dest:
-                return True
-            
-        return False
+        return any(edge.dest == dest for edge in self.graph[src].edges)
 
 
