@@ -1,4 +1,5 @@
 from queue import PriorityQueue
+import random
 
 # Has a unique id, can be uuid or just number them
 # Keeps a list of edges that are attached to the vertex
@@ -30,6 +31,9 @@ class Graph:
     def __init__(self, num_verts):
         self.num_verts = num_verts
         self.graph = [Vertex(i, (0, 0)) for i in range(num_verts)]
+        
+        for vertex in self.graph:
+            self.set_vertex_location(vertex)
 
     def add_edge(self, src, dest, w = 1.0):
         if (src == dest or not self.is_valid_vertex(src) or not self.is_valid_vertex(dest) or self.has_edge(src, dest)):
@@ -51,7 +55,19 @@ class Graph:
                 edges.pop(i)
                 break
 
-    
+
+    def set_vertex_location(self, vertex):
+        x = round(random.random() * 100, 4)
+        y = round(random.random() * 100, 4)
+        vertex.location = (x,y)
+
+
+    # For Testing
+    def show_locations(self):
+        for vert in self.graph:
+            print(f"Vert {vert.id} Location: ", vert.location)
+
+        
     def compare_dij(self, dij_vert_1, dij_vert_2):
         return dij_vert_1.weight > dij_vert_2.weight
 
@@ -63,6 +79,7 @@ class Graph:
         frontier = PriorityQueue()
 
         dist[s] = 0
+        pred[s] = s
         frontier.put(Dij_Vert(s,0))
 
         while not frontier.empty():
@@ -82,52 +99,47 @@ class Graph:
                         frontier.put(Dij_Vert(edge.dest, dist[edge.dest]))
 
         return dist
-    
-    #TODO: Research and Implement
-    def A_star(self, s, e):
-        # Initialize arrays
-        dist = [float('inf')] * self.num_verts  # Distance from source
-        pred = [-1] * self.num_verts  # Predecessor array
-        known = [False] * self.num_verts  # Known vertices (visited)
         
-        frontier = PriorityQueue()  # Priority queue for frontier
 
-        # Initialize start node
-        dist[s] = 0
-        frontier.put((0, s))  # (priority, node)
+    def A_star(self, start, end):
+        g_scores = {v: float('inf') for v in range(self.num_verts)}
+        f_scores = {v: float('inf') for v in range(self.num_verts)}
+        open_set = PriorityQueue()
+        came_from = {}
 
-        while not frontier.empty():
-            # Get the next node with the smallest priority
-            current_priority, current_node = frontier.get()
+        g_scores[start] = 0
+        f_scores[start] = self.calculate_heuristic(start, end)
 
-            # If the node is already processed, skip it
-            if known[current_node]:
-                continue
+        open_set.put((f_scores[start], start))
 
-            known[current_node] = True
+        in_open_set = {start}
 
-            # If we reached the target node, exit early
-            if current_node == e:
-                break
+        while not open_set.empty():
+            current = open_set.get()[1]
 
-            # Explore neighbors
-            for edge in self.graph[current_node].edges:
+            if (current == end):
+                path = self.reconstruct_path(came_from, end)
+                return path, g_scores[end]
+            
+            in_open_set.remove(current)
+
+            for edge in self.graph[current].edges:
                 neighbor = edge.dest
-                if known[neighbor]:
-                    continue
 
-                # g = distance to neighbor
-                g = dist[current_node] + edge.weight
-                h = self.calculate_heuristic(neighbor, e)  # Heuristic to target
-                f = g + h  # Total cost (priority)
+                tent_g_score = g_scores[current] + edge.weight
 
-                # Update distance if a better path is found
-                if g < dist[neighbor]:
-                    dist[neighbor] = g
-                    pred[neighbor] = current_node
-                    frontier.put((f, neighbor))  # Push to frontier with priority f
+                if tent_g_score < g_scores[neighbor]:
+                    came_from[neighbor] = current
+                    g_scores[neighbor] = tent_g_score
+                    f_scores[neighbor] = self.calculate_heuristic(neighbor, end) + tent_g_score
 
-        return dist, pred  # Return distances and predecessors
+                    if (neighbor not in in_open_set):
+                        open_set.put((f_scores[neighbor], neighbor))
+                        in_open_set.add(neighbor)
+
+        return None, float('inf')
+
+
 
 
     def is_valid_vertex(self, vertex):
@@ -137,6 +149,13 @@ class Graph:
         start_loc = self.graph[start].location
         end_loc = self.graph[end].location
         return abs(start_loc[0] - end_loc[0]) + abs(start_loc[1] - end_loc[1])
+    
+    def reconstruct_path(self, came_from, current):
+        path = [current]
+        while current in came_from:
+            current = came_from[current]
+            path.append(current)
+        return path[::-1]
     
     # Checks if there is already an edge between 2 vertices, would need to be changed if the graph is not directed
     def has_edge(self, src, dest):

@@ -8,10 +8,24 @@ g.add_edge(0, 3, 1)
 g.add_edge(3, 4, 5)
 g.add_edge(4, 2, 2)
 
+print("Number of vertices:", g.num_verts)
+g.show_locations()
+
 # Run A* from source to destination
-distances, predecessors = g.A_star(0, 2)
-print("Shortest distances:", distances)
-print("Predecessors:", predecessors)
+path, total_cost = g.A_star(0, 2)
+
+if path is not None:
+    print("\nPath found:")
+    print("Path:", ' -> '.join(str(vertex) for vertex in path))
+    print("Total cost:", total_cost)
+    
+    # Print the coordinates of the path
+    print("\nPath coordinates:")
+    for vertex in path:
+        loc = g.graph[vertex].location
+        print(f"Vertex {vertex}: {loc}")
+else:
+    print("\nNo path found between the vertices")
 
 # Initialize a graph with 5 vertices
 g2 = Graph(5)
